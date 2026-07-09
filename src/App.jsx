@@ -78,12 +78,11 @@ const safeLocalStorage = {
 
 const PRECONFIGURED_API_KEY = "DEIN_API_SCHLÜSSEL_HIER";
 
-// Sichere Normalisierung von Familiendaten zur Vermeidung von Render-Abstürzen
 const normalizeFamily = (famArray) => {
   if (!Array.isArray(famArray)) return [];
   return famArray.map(item => {
     if (typeof item === 'string') {
-      return { name: item, age: 30 }; // Standard-Alter für konvertierte Strings
+      return { name: item, age: 30 };
     }
     if (item && typeof item === 'object') {
       return {
@@ -99,9 +98,6 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('assistant');
   const [location, setLocation] = useState(() => String(safeLocalStorage.getItem('klingenberg_location') || 'Bari'));
-  // Separater Entwurfs-State für das Ortsfeld im Settings-Formular. So läuft der
-  // Tipps-Reset-Effekt (der an `location` hängt) erst beim tatsächlichen Speichern,
-  // nicht bei jedem einzelnen Tastendruck.
   const [draftLocation, setDraftLocation] = useState(() => String(safeLocalStorage.getItem('klingenberg_location') || 'Bari'));
   const [customApiKey, setCustomApiKey] = useState(() => String(safeLocalStorage.getItem('klingenberg_apikey') || ''));
 
@@ -164,6 +160,11 @@ export default function App() {
   const [newSceneTitle, setNewSceneTitle] = useState('');
   const [newSceneActor, setNewSceneActor] = useState('');
 
+  // Kino-Modus States
+  const [isPlayingMovie, setIsPlayingMovie] = useState(false);
+  const [currentMovieIndex, setCurrentMovieIndex] = useState(0);
+  const completedMediaScenes = movieScenes.filter(s => s.completed && (s.image || s.video));
+
   const getDefaultTips = (city) => {
     const lowerCity = String(city || '').toLowerCase().trim();
     if (lowerCity.includes('bari')) {
@@ -184,7 +185,7 @@ export default function App() {
       return [
         { id: 'def1', title: `Historische Entdeckungstour in ${city}`, cat: 'Erkundung', desc: 'Schlendert gemütlich durch die Fußgängerzone – absolut kinderwagenfreundlich und voller Entdeckungen für die Großen.', emoji: '🗺️' },
         { id: 'def2', title: 'Lokaler Stadtpark & Abenteuerspielplatz', cat: 'Natur', desc: 'Auszeit im Grünen: Schaukeln für Baby Leeni, Klettergerüste für Amelia & Olivia, sowie Schattenplätze für Elias & Silja.', emoji: '🌳' },
-        { id: 'def3', title: 'Beste local Eisdiele vor Ort', cat: 'Genuss', desc: 'Sucht nach der bestbewerteten Eisdiele der Stadt – ein süßer Stopp bringt der ganzen Familie direkt gute Laune.', emoji: '🍦' },
+        { id: 'def3', title: 'Beste lokale Eisdiele vor Ort', cat: 'Genuss', desc: 'Sucht nach der bestbewerteten Eisdiele der Stadt – ein süßer Stopp bringt der ganzen Familie direkt gute Laune.', emoji: '🍦' },
         { id: 'def4', title: 'Interaktives Familien-Erlebnis', cat: 'Freizeit', desc: 'Ein kinderfreundliches Museum oder eine Aktivität, die Groß und Klein gleichermaßen begeistert und ablenkt.', emoji: '🧩' }
       ];
     }
@@ -244,6 +245,25 @@ export default function App() {
     }, 6000);
     return () => clearInterval(interval);
   }, []);
+
+  // Kino-Modus Abspiel-Logik
+  useEffect(() => {
+    if (isPlayingMovie && completedMediaScenes.length > 0) {
+      const currentScene = completedMediaScenes[currentMovieIndex];
+      // Wenn es ein Bild ist, wechsle nach 4 Sekunden zur nächsten Szene
+      if (currentScene.image && !currentScene.video) {
+        const timer = setTimeout(() => {
+          if (currentMovieIndex < completedMediaScenes.length - 1) {
+            setCurrentMovieIndex(prev => prev + 1);
+          } else {
+            setIsPlayingMovie(false);
+            setCurrentMovieIndex(0);
+          }
+        }, 4000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [isPlayingMovie, currentMovieIndex, completedMediaScenes]);
 
   useEffect(() => {
     try {
@@ -1300,11 +1320,27 @@ Gib die Antwort im exakten JSON-Format aus.
 
           {activeTab === 'film' && (
             <div className="space-y-4 animate-in fade-in duration-300">
-              <div>
-                <h2 className="text-base font-black tracking-tight flex items-center gap-1">
-                  <Film size={18} className="text-rose-500" /> Klingenberg Kinoplaner
-                </h2>
-                <p className="text-[11px] text-slate-400">Storyboard, Regie & Synchron-Erlebnisse</p>
+              <div className="flex justify-between items-end">
+                <div>
+                  <h2 className="text-base font-black tracking-tight flex items-center gap-1">
+                    <Film size={18} className="text-rose-500" /> Klingenberg Kinoplaner
+                  </h2>
+                  <p className="text-[11px] text-slate-400">Storyboard, Regie & Synchron-Erlebnisse</p>
+                </div>
+                
+                <button 
+                  onClick={() => {
+                    if (completedMediaScenes.length === 0) {
+                      triggerBanner("🎬 Keine fertigen Szenen mit Bild/Video vorhanden!");
+                      return;
+                    }
+                    setCurrentMovieIndex(0);
+                    setIsPlayingMovie(true);
+                  }}
+                  className="bg-gradient-to-r from-rose-500 to-orange-500 text-white text-xs font-black px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-lg active:scale-95 transition-all"
+                >
+                  <Film size={14} /> Film abspielen
+                </button>
               </div>
 
               <div className="bg-slate-900/95 border border-white/10 p-4 rounded-2xl space-y-3 shadow-md">
@@ -1585,6 +1621,57 @@ Gib die Antwort im exakten JSON-Format aus.
                 </button>
 
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* KINO MODUS OVERLAY */}
+        {isPlayingMovie && completedMediaScenes.length > 0 && (
+          <div className="absolute inset-0 bg-slate-950 z-50 flex flex-col items-center justify-center animate-in fade-in duration-700">
+            {/* Schließen-Button */}
+            <button 
+              onClick={() => { setIsPlayingMovie(false); setCurrentMovieIndex(0); }}
+              className="absolute top-8 right-6 bg-slate-900/50 p-2 rounded-full text-white/70 hover:text-white z-50 backdrop-blur"
+            >
+              <X size={20} />
+            </button>
+            
+            <div className="w-full h-full flex flex-col items-center justify-center relative bg-black">
+              {completedMediaScenes[currentMovieIndex].video ? (
+                <video 
+                  src={completedMediaScenes[currentMovieIndex].video} 
+                  autoPlay 
+                  playsInline
+                  onEnded={() => {
+                    if (currentMovieIndex < completedMediaScenes.length - 1) {
+                      setCurrentMovieIndex(prev => prev + 1);
+                    } else {
+                      setIsPlayingMovie(false);
+                      setCurrentMovieIndex(0);
+                    }
+                  }}
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <img 
+                  src={completedMediaScenes[currentMovieIndex].image} 
+                  alt="Szene" 
+                  className="w-full h-full object-contain animate-in zoom-in duration-1000"
+                />
+              )}
+              
+              {/* Filmuntertitel */}
+              <div className="absolute bottom-16 left-4 right-4 p-4 bg-slate-950/80 backdrop-blur-md rounded-2xl text-center border border-white/10 shadow-2xl animate-in slide-in-from-bottom duration-500">
+                <p className="text-amber-400 font-extrabold text-xs mb-1 uppercase tracking-widest flex justify-center items-center gap-2">
+                  <span className="text-lg">{completedMediaScenes[currentMovieIndex].emoji || '🎬'}</span> 
+                  {completedMediaScenes[currentMovieIndex].title}
+                </p>
+                {completedMediaScenes[currentMovieIndex].desc && (
+                  <p className="text-slate-200 text-[11px] italic leading-relaxed">
+                    "{completedMediaScenes[currentMovieIndex].desc}"
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         )}
