@@ -160,11 +160,9 @@ export default function App() {
   const [newSceneTitle, setNewSceneTitle] = useState('');
   const [newSceneActor, setNewSceneActor] = useState('');
 
-  // Kino-Modus States
   const [isPlayingMovie, setIsPlayingMovie] = useState(false);
   const [currentMovieIndex, setCurrentMovieIndex] = useState(0);
   
-  // Filtert ALLE fertigen Szenen, auch reine Texteinträge
   const completedMediaScenes = movieScenes.filter(s => s.completed);
 
   const getDefaultTips = (city) => {
@@ -248,11 +246,9 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Kino-Modus Abspiel-Logik
   useEffect(() => {
     if (isPlayingMovie && completedMediaScenes.length > 0) {
       const currentScene = completedMediaScenes[currentMovieIndex];
-      // Wenn es KEIN Video ist (also ein Bild ODER reiner Text), wechsle nach 5 Sekunden
       if (!currentScene.video) {
         const timer = setTimeout(() => {
           if (currentMovieIndex < completedMediaScenes.length - 1) {
@@ -261,7 +257,7 @@ export default function App() {
             setIsPlayingMovie(false);
             setCurrentMovieIndex(0);
           }
-        }, 5000); // Erhöht auf 5 Sekunden für besseres Lesen von Text
+        }, 5000);
         return () => clearTimeout(timer);
       }
     }
@@ -537,10 +533,15 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = async (event) => {
       const formattedDate = new Date().toLocaleDateString('de-DE', { day: 'numeric', month: 'short' });
+      
+      // Verwendet den Text aus dem Eingabefeld, falls vorhanden
+      const customDesc = quickLogInput.trim() !== '' ? quickLogInput.trim() : 'Ein magischer Augenblick aus dem Urlaub direkt vor der Kamera festgehalten!';
+      const customTitle = quickLogInput.trim() !== '' ? 'Foto-Erinnerung' : 'Schnappschuss';
+
       const newEntry = {
         id: Date.now().toString(),
-        title: 'Schnappschuss',
-        desc: 'Ein magischer Augenblick aus dem Urlaub direkt vor der Kamera festgehalten!',
+        title: customTitle,
+        desc: customDesc,
         emoji: '📸',
         date: formattedDate,
         image: event.target.result,
@@ -552,8 +553,8 @@ export default function App() {
 
       const newScene = {
         id: newEntry.id + "-mov",
-        title: 'Schnappschuss aufgenommen',
-        desc: 'Ein magischer Augenblick aus dem Urlaub direkt vor der Kamera festgehalten!',
+        title: customTitle,
+        desc: customDesc,
         emoji: '📸',
         date: formattedDate,
         image: event.target.result,
@@ -564,7 +565,8 @@ export default function App() {
       setMovieScenes(updatedScenes);
       safeLocalStorage.setItem('klingenberg_movie', JSON.stringify(updatedScenes));
 
-      triggerBanner("📸 Foto im Tagebuch & Kinoplaner gesichert!");
+      setQuickLogInput(''); // Setzt das Eingabefeld nach dem Speichern wieder zurück
+      triggerBanner("📸 Foto mit Text gesichert!");
 
       if (db && user) {
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'klingenberg_data', 'log'), {
@@ -590,10 +592,15 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = async (event) => {
       const formattedDate = new Date().toLocaleDateString('de-DE', { day: 'numeric', month: 'short' });
+      
+      // Verwendet den Text aus dem Eingabefeld, falls vorhanden
+      const customDesc = quickLogInput.trim() !== '' ? quickLogInput.trim() : 'Ein toller, gefilmter Moment der Familie im Reisetagebuch.';
+      const customTitle = quickLogInput.trim() !== '' ? 'Video-Erinnerung' : 'Urlaubsvideo';
+
       const newEntry = {
         id: Date.now().toString(),
-        title: 'Urlaubsvideo',
-        desc: 'Ein toller, gefilmter Moment der Familie im Reisetagebuch.',
+        title: customTitle,
+        desc: customDesc,
         emoji: '🎥',
         date: formattedDate,
         video: event.target.result,
@@ -605,8 +612,8 @@ export default function App() {
 
       const newScene = {
         id: newEntry.id + "-mov",
-        title: 'Urlaubsclip gefilmt',
-        desc: 'Ein toller, gefilmter Moment der Familie im Reisetagebuch.',
+        title: customTitle,
+        desc: customDesc,
         emoji: '🎥',
         date: formattedDate,
         video: event.target.result,
@@ -617,7 +624,8 @@ export default function App() {
       setMovieScenes(updatedScenes);
       safeLocalStorage.setItem('klingenberg_movie', JSON.stringify(updatedScenes));
 
-      triggerBanner("🎥 Video im Tagebuch & Kinoplaner gesichert!");
+      setQuickLogInput(''); // Setzt das Eingabefeld nach dem Speichern wieder zurück
+      triggerBanner("🎥 Video mit Text gesichert!");
 
       if (db && user) {
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'klingenberg_data', 'log'), {
@@ -1644,6 +1652,7 @@ Gib die Antwort im exakten JSON-Format aus.
                   src={completedMediaScenes[currentMovieIndex].video} 
                   autoPlay 
                   playsInline
+                  controls
                   onEnded={() => {
                     if (currentMovieIndex < completedMediaScenes.length - 1) {
                       setCurrentMovieIndex(prev => prev + 1);
