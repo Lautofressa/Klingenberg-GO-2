@@ -163,7 +163,9 @@ export default function App() {
   // Kino-Modus States
   const [isPlayingMovie, setIsPlayingMovie] = useState(false);
   const [currentMovieIndex, setCurrentMovieIndex] = useState(0);
-  const completedMediaScenes = movieScenes.filter(s => s.completed && (s.image || s.video));
+  
+  // Filtert ALLE fertigen Szenen, auch reine Texteinträge
+  const completedMediaScenes = movieScenes.filter(s => s.completed);
 
   const getDefaultTips = (city) => {
     const lowerCity = String(city || '').toLowerCase().trim();
@@ -250,8 +252,8 @@ export default function App() {
   useEffect(() => {
     if (isPlayingMovie && completedMediaScenes.length > 0) {
       const currentScene = completedMediaScenes[currentMovieIndex];
-      // Wenn es ein Bild ist, wechsle nach 4 Sekunden zur nächsten Szene
-      if (currentScene.image && !currentScene.video) {
+      // Wenn es KEIN Video ist (also ein Bild ODER reiner Text), wechsle nach 5 Sekunden
+      if (!currentScene.video) {
         const timer = setTimeout(() => {
           if (currentMovieIndex < completedMediaScenes.length - 1) {
             setCurrentMovieIndex(prev => prev + 1);
@@ -259,7 +261,7 @@ export default function App() {
             setIsPlayingMovie(false);
             setCurrentMovieIndex(0);
           }
-        }, 4000);
+        }, 5000); // Erhöht auf 5 Sekunden für besseres Lesen von Text
         return () => clearTimeout(timer);
       }
     }
@@ -1331,7 +1333,7 @@ Gib die Antwort im exakten JSON-Format aus.
                 <button 
                   onClick={() => {
                     if (completedMediaScenes.length === 0) {
-                      triggerBanner("🎬 Keine fertigen Szenen mit Bild/Video vorhanden!");
+                      triggerBanner("🎬 Keine fertigen Szenen vorhanden!");
                       return;
                     }
                     setCurrentMovieIndex(0);
@@ -1652,26 +1654,34 @@ Gib die Antwort im exakten JSON-Format aus.
                   }}
                   className="w-full h-full object-contain"
                 />
-              ) : (
+              ) : completedMediaScenes[currentMovieIndex].image ? (
                 <img 
                   src={completedMediaScenes[currentMovieIndex].image} 
                   alt="Szene" 
                   className="w-full h-full object-contain animate-in zoom-in duration-1000"
                 />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-950 px-8 text-center animate-in zoom-in duration-1000">
+                  <span className="text-6xl mb-6">{completedMediaScenes[currentMovieIndex].emoji || '📝'}</span>
+                  <h3 className="text-2xl font-black text-amber-400 mb-4 uppercase tracking-widest leading-snug">{completedMediaScenes[currentMovieIndex].title}</h3>
+                  <p className="text-lg text-slate-200 italic leading-relaxed">"{completedMediaScenes[currentMovieIndex].desc}"</p>
+                </div>
               )}
               
-              {/* Filmuntertitel */}
-              <div className="absolute bottom-16 left-4 right-4 p-4 bg-slate-950/80 backdrop-blur-md rounded-2xl text-center border border-white/10 shadow-2xl animate-in slide-in-from-bottom duration-500">
-                <p className="text-amber-400 font-extrabold text-xs mb-1 uppercase tracking-widest flex justify-center items-center gap-2">
-                  <span className="text-lg">{completedMediaScenes[currentMovieIndex].emoji || '🎬'}</span> 
-                  {completedMediaScenes[currentMovieIndex].title}
-                </p>
-                {completedMediaScenes[currentMovieIndex].desc && (
-                  <p className="text-slate-200 text-[11px] italic leading-relaxed">
-                    "{completedMediaScenes[currentMovieIndex].desc}"
+              {/* Filmuntertitel nur für Bilder und Videos anzeigen */}
+              {(completedMediaScenes[currentMovieIndex].image || completedMediaScenes[currentMovieIndex].video) && (
+                <div className="absolute bottom-16 left-4 right-4 p-4 bg-slate-950/80 backdrop-blur-md rounded-2xl text-center border border-white/10 shadow-2xl animate-in slide-in-from-bottom duration-500">
+                  <p className="text-amber-400 font-extrabold text-xs mb-1 uppercase tracking-widest flex justify-center items-center gap-2">
+                    <span className="text-lg">{completedMediaScenes[currentMovieIndex].emoji || '🎬'}</span> 
+                    {completedMediaScenes[currentMovieIndex].title}
                   </p>
-                )}
-              </div>
+                  {completedMediaScenes[currentMovieIndex].desc && (
+                    <p className="text-slate-200 text-[11px] italic leading-relaxed">
+                      "{completedMediaScenes[currentMovieIndex].desc}"
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
